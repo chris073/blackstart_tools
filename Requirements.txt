@@ -1,0 +1,5 @@
+FreeSimpleGUI
+requests
+pandas
+openpyxl
+python-dotenv

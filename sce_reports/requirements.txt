@@ -1,0 +1,8 @@
+# IEEE 2800 PFR Calcs - Python dependencies
+# Install: pip install -r requirements.txt
+
+FreeSimpleGUI>=2.0.0
+pandas>=1.3.0
+numpy>=1.20.0
+openpyxl>=3.0.0
+matplotlib>=3.3.0
