@@ -564,7 +564,15 @@ def _qb_pair_row(i: int, device_combo_values: List[str]) -> list:
             readonly=False,
             expand_x=True,
             pad=((4, 0), 0),
-            tooltip="Type or pick; run Keys query on Query tab to load choices for that device from results",
+            tooltip="Single key when labels is empty; type or pick after running Keys query",
+        ),
+        sg.Input(
+            default_text="",
+            key="qb_labels_{}".format(i),
+            size=(22, 1),
+            expand_x=True,
+            pad=((4, 0), 0),
+            tooltip="Optional: comma-separated keys, or * for all keys loaded for this device (run Keys first). Overrides JSON key when non-empty.",
         ),
         sg.Button(
             "Keys",
@@ -572,6 +580,40 @@ def _qb_pair_row(i: int, device_combo_values: List[str]) -> list:
             tooltip="Place distinct JSON keys SQL on Query tab; Run query there to execute and refresh dropdowns",
         ),
     ]
+
+
+def _qb_resolve_row_json_keys(
+    labels_raw: str,
+    json_key_fallback: str,
+    dev: str,
+    keys_by_device: Dict[str, List[str]],
+    row_display_num: int,
+) -> Tuple[Optional[str], List[str]]:
+    """
+    Labels override JSON key when non-empty: comma-separated keys, or * = all keys for device
+    from keys_by_device (populated after a successful Keys query).
+    """
+    labels = (labels_raw or "").strip()
+    if labels:
+        if labels == "*":
+            ks = keys_by_device.get(dev, [])
+            if not ks:
+                return (
+                    "Row {}: use * only after keys are loaded — click Keys on this row and Run query on the Query tab.".format(
+                        row_display_num
+                    ),
+                    [],
+                )
+            return (None, list(ks))
+        parts = [p.strip() for p in labels.split(",")]
+        keys = [p for p in parts if p]
+        if not keys:
+            return ("Row {}: labels are empty after splitting on commas.".format(row_display_num), [])
+        return (None, keys)
+    jkey = (json_key_fallback or "").strip()
+    if not jkey:
+        return (None, [])
+    return (None, [jkey])
 
 
 def main():
@@ -633,7 +675,9 @@ def main():
                 "and from_iso8601_timestamp({d}) >= start AND < end (end exclusive). "
                 "Plain database names use schema.table without quotes. "
                 "List device IDs / Keys only place SQL on the Query tab; use Run query there to execute. "
-                "After a successful run, matching results refresh the device_id / JSON key dropdowns."
+                "After a successful run, matching results refresh the device_id / JSON key dropdowns. "
+                "Labels: comma-separated keys, or * for all keys loaded for that device (Keys + Run first). "
+                "+ Row copies device_id from the row above."
                 .format(d=DATE_COL, c=DATA_COL),
                 font=("Segoe UI", 8),
                 text_color="gray",
@@ -761,10 +805,19 @@ def main():
             open_qb_datetime_picker(window, values.get("qb_end") or "", "qb_end", "End — date and time")
 
         elif event == "qb_add_row":
+            prev_i = qb_indices[-1] if qb_indices else None
+            prev_dev = (values.get("qb_dev_{}".format(prev_i)) or "").strip() if prev_i is not None else ""
             i = qb_next_idx
             qb_next_idx += 1
             qb_indices.append(i)
             window.extend_layout(window["qb_pairs_col"], [_qb_pair_row(i, list(device_id_choices))])
+            if prev_dev:
+                disp = sorted(set(device_id_choices) | {prev_dev})
+                window["qb_dev_{}".format(i)].update(values=disp, value=prev_dev)
+                ks = keys_by_device.get(prev_dev, [])
+                cur_k = (values.get("qb_key_{}".format(i)) or "").strip()
+                disp_k = sorted(set(ks) | ({cur_k} if cur_k else set()) | {""})
+                window["qb_key_{}".format(i)].update(values=disp_k, value=cur_k)
 
         elif event == "qb_list_devices":
             db = (values.get("qb_database") or "").strip()
@@ -839,18 +892,33 @@ def main():
             for i in qb_indices:
                 dev = (values.get("qb_dev_{}".format(i)) or "").strip()
                 jkey = (values.get("qb_key_{}".format(i)) or "").strip()
-                if not dev and not jkey:
+                labels_raw = (values.get("qb_labels_{}".format(i)) or "").strip()
+                err, key_list = _qb_resolve_row_json_keys(
+                    labels_raw, jkey, dev, keys_by_device, i + 1
+                )
+                if err:
+                    qb_pair_error = err
+                    break
+                if not dev and not key_list:
                     continue
-                if dev and not jkey:
-                    qb_pair_error = "Row {}: enter a JSON key (e.g. kw, solirr1) for each device_id.".format(i + 1)
+                if key_list and not dev:
+                    qb_pair_error = "Row {}: enter device_id for each JSON key / labels.".format(i + 1)
                     break
-                if jkey and not dev:
-                    qb_pair_error = "Row {}: enter device_id for each JSON key.".format(i + 1)
+                if dev and not key_list:
+                    qb_pair_error = (
+                        "Row {}: enter a JSON key or labels (comma-separated or * after loading keys).".format(i + 1)
+                    )
                     break
-                if not key_re.match(jkey):
-                    qb_pair_error = "Row {}: JSON key may only use letters, digits, underscore, and dot.".format(i + 1)
+                for k in key_list:
+                    if not key_re.match(k):
+                        qb_pair_error = "Row {}: key {!r} may only use letters, digits, underscore, and dot.".format(
+                            i + 1, k
+                        )
+                        break
+                if qb_pair_error:
                     break
-                pairs.append((dev, jkey))
+                for k in key_list:
+                    pairs.append((dev, k))
             if qb_pair_error:
                 sg.popup("Check rows", qb_pair_error)
                 continue
