@@ -1,0 +1,10 @@
+{
+  "name": "@indie-tools/api",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "python -m uvicorn app.main:app --reload --port 8000",
+    "start": "python -m uvicorn app.main:app --host 0.0.0.0 --port 8000"
+  }
+}
+

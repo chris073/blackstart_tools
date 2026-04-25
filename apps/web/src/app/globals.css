@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  color: theme(colors.bsl.text);
+  background: radial-gradient(1200px 800px at 20% 10%, rgba(124, 58, 237, 0.20), transparent 50%),
+    radial-gradient(900px 700px at 80% 20%, rgba(34, 211, 238, 0.14), transparent 55%),
+    theme(colors.bsl.bg);
+}
+
+::selection {
+  background: rgba(124, 58, 237, 0.35);
+}
+

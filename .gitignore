@@ -2,3 +2,13 @@
 __pycache__/
 *.xlsx
 .venv/
+node_modules/
+.next/
+dist/
+out/
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+apps/**/node_modules/
+apps/**/.next/
