@@ -6,6 +6,10 @@ from typing import List, Set, Tuple
 
 import boto3
 
+from app.services import athena_config
+
+athena_config.load_athena_env()
+
 REGION = os.getenv("REGION", "us-west-2")
 WORKGROUP = os.getenv("WORKGROUP", "engineering")
 
@@ -41,15 +45,6 @@ def run_athena_query(query: str) -> Tuple[List[List[str]], str]:
         return [], "Failed to get results: {}".format(e)
     rows = [[col.get("VarCharValue") or "" for col in row["Data"]] for row in res["ResultSet"]["Rows"]]
     return rows, "Succeeded"
-
-
-def list_databases() -> Tuple[List[str], str]:
-    rows, msg = run_athena_query("SHOW DATABASES;")
-    if not rows:
-        return [], msg
-    # Athena returns a header row.
-    vals = [r[0] for r in (rows[1:] if len(rows) > 1 else rows) if r]
-    return sorted(set([v for v in vals if v])), msg
 
 
 def _sql_string_literal(s: str) -> str:
@@ -214,20 +209,6 @@ def build_timeseries_compare_query(database: str, start_ts: str, end_ts: str, ro
     from_join += "ORDER BY {}.ts;".format(primary)
 
     return "WITH\n" + ",\n".join(cte_parts) + "\n" + select_list + "\n" + from_join
-
-
-def build_list_device_ids_query(database: str, start_ts: str) -> str:
-    from_tbl = _from_database_device(database)
-    start_dt = _parse_dt_for_range(start_ts, False)
-    y, m, d = start_dt.year, start_dt.month, start_dt.day
-    return (
-        "SELECT DISTINCT json_extract_scalar({dc}, '$.device_id') AS device_id\n"
-        "FROM {tbl}\n"
-        "WHERE year = {y}\n"
-        "  AND month = {m}\n"
-        "  AND day = {d}\n"
-        "ORDER BY device_id;"
-    ).format(tbl=from_tbl, dc=DATA_COL, y=y, m=m, d=d)
 
 
 def build_device_json_keys_query(database: str, device_id: str, start_ts: str) -> str:

@@ -1,7 +1,8 @@
-DATABASE_URL='postgresql://indie_admin:npg_3Gwp2uJZVNQx@ep-dry-tree-adt9ts1x-pooler.c-2.us-east-1.aws.neon.tech/indie_projects?sslmode=require&channel_binding=require'
-OPENAI_API_KEY='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'
-JIRA_DOMAIN='https://indieenergy.atlassian.net/'
-JIRA_EMAIL='chris.sossamon@indie.energy'
-JIRA_API_TOKEN='ATATT3xFfGF0tqOa_9SmeUIGYImrqjldGMtsPxukWc2lol0vlgmsnp10-rpiijw97ESmkNifRCu38B_G7EQIiipRba8-nYNkSXNahXbnmItnxH2ztVDbGLRCP5JyxOt009dQQfmMTBDOAE4TFFtlfflkaBCg2LwuTFJEOvOXdSaok1j6DQwe1Bo=BA9B9D99'
-COMPLETION_READ_WRITE_TOKEN="vercel_blob_rw_vW6Pp1GLBvAtu7Eb_9vvk9NSBp4DbAdk9THRX094KqTBcC1"
-OPEN_AI_KEY="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"
+# Local secrets / env (do not commit real values). Rename or merge into your real env file.
+DATABASE_URL=
+OPENAI_API_KEY=
+JIRA_DOMAIN=
+JIRA_EMAIL=
+JIRA_API_TOKEN=
+COMPLETION_READ_WRITE_TOKEN=
+OPEN_AI_KEY=

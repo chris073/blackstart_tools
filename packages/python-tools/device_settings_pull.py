@@ -97,7 +97,7 @@ layout = [
     [sg.Text("Base URL:"), sg.Input(default_url, key="-URL-", expand_x=True)],
     [sg.Text("API Key:"), sg.Input(env_key, key="-KEY-", password_char="*", expand_x=True)],
     [sg.Frame("Endpoint", [[sg.Radio(k, "EP", key=k, default=(k=="Device Config")) for k in endpoint_map.keys()]])],
-    [sg.Text("Customer Name:"), sg.Input("indie", key="-CUST-", expand_x=True)],
+    [sg.Text("Customer Name:"), sg.Input("", key="-CUST-", expand_x=True)],
     [sg.Text("Device ID:"), sg.Input("XXX_XXX_U_01", key="-DEVICE-", expand_x=True)],
     [sg.Button("Test Connection", button_color="#2980b9"), 
      sg.Button("Export to Excel", key="-EXPORT-", disabled=True, button_color="green"), 

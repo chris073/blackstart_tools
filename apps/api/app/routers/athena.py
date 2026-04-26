@@ -1,13 +1,12 @@
-from typing import List, Optional
+from typing import List
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from app.services.athena_config import load_database_names_for_dropdown
 from app.services.athena_core import (
     build_device_json_keys_query,
-    build_list_device_ids_query,
     build_timeseries_compare_query,
-    list_databases,
     run_athena_query,
 )
 
@@ -23,9 +22,19 @@ class RunQueryResponse(BaseModel):
     message: str
 
 
-class ListResponse(BaseModel):
+class DatabasesResponse(BaseModel):
     items: List[str]
     message: str
+    source_path: str = ""
+
+
+class KeysResponse(BaseModel):
+    """Keys discovery: distinct key names plus full result grid for output/Excel."""
+
+    items: List[str]
+    sql: str
+    message: str
+    rows: List[List[str]]
 
 
 class BuilderRow(BaseModel):
@@ -57,10 +66,10 @@ def _split_labels_or_key(labels: str, json_key: str) -> List[str]:
     return [jk] if jk else []
 
 
-@router.get("/databases", response_model=ListResponse)
-def databases() -> ListResponse:
-    items, msg = list_databases()
-    return ListResponse(items=items, message=msg)
+@router.get("/databases", response_model=DatabasesResponse)
+def databases() -> DatabasesResponse:
+    items, msg, path = load_database_names_for_dropdown()
+    return DatabasesResponse(items=items, message=msg, source_path=path or "")
 
 
 @router.post("/run", response_model=RunQueryResponse)
@@ -69,22 +78,12 @@ def run(req: RunQueryRequest) -> RunQueryResponse:
     return RunQueryResponse(rows=rows, message=msg)
 
 
-@router.get("/device-ids", response_model=ListResponse)
-def device_ids(database: str, start: str) -> ListResponse:
-    sql = build_list_device_ids_query(database, start)
-    rows, msg = run_athena_query(sql)
-    # header row: device_id
-    items = [r[0] for r in (rows[1:] if len(rows) > 1 else []) if r and (r[0] or "").strip()]
-    return ListResponse(items=sorted(set(items)), message=msg)
-
-
-@router.get("/keys", response_model=ListResponse)
-def keys(database: str, device_id: str, start: str) -> ListResponse:
+@router.get("/keys", response_model=KeysResponse)
+def keys(database: str, device_id: str, start: str) -> KeysResponse:
     sql = build_device_json_keys_query(database, device_id, start)
     rows, msg = run_athena_query(sql)
-    # header row: key
     items = [r[0] for r in (rows[1:] if len(rows) > 1 else []) if r and (r[0] or "").strip()]
-    return ListResponse(items=sorted(set(items)), message=msg)
+    return KeysResponse(items=sorted(set(items)), sql=sql, message=msg, rows=rows)
 
 
 @router.post("/build/timeseries-compare", response_model=BuildTimeseriesResponse)
@@ -102,11 +101,13 @@ def build_timeseries(req: BuildTimeseriesRequest) -> BuildTimeseriesResponse:
             continue
 
         if "*" in keys:
-            # Expand * by querying keys for that device/day
             sql = build_device_json_keys_query(req.database, dev, req.start)
             rows, msg = run_athena_query(sql)
             if not rows:
-                raise ValueError("Row {}: failed to load keys for * ({})".format(idx + 1, msg))
+                raise HTTPException(
+                    status_code=400,
+                    detail="Row {}: failed to load keys for * ({})".format(idx + 1, msg),
+                )
             klist = [x[0] for x in rows[1:] if x and (x[0] or "").strip()]
             keys = sorted(set(klist))
 
@@ -115,9 +116,12 @@ def build_timeseries(req: BuildTimeseriesRequest) -> BuildTimeseriesResponse:
             if not k:
                 continue
             if not key_re.match(k):
-                raise ValueError("Row {}: invalid key {!r}".format(idx + 1, k))
+                raise HTTPException(status_code=400, detail="Row {}: invalid key {!r}".format(idx + 1, k))
             pairs.append((dev, k))
             expanded.append([dev, k])
+
+    if not pairs:
+        raise HTTPException(status_code=400, detail="No series rows (device_id + json key or labels).")
 
     sql = build_timeseries_compare_query(req.database, req.start, req.end, pairs)
     return BuildTimeseriesResponse(sql=sql, expanded_pairs=expanded)

@@ -1,4 +1,7 @@
 .env
+apps/api/athena/.env.local
+apps/api/.env.local
+apps/web/.env.local
 __pycache__/
 *.xlsx
 .venv/
