@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
-  title: "PING Check · Blackstart Tools",
+  title: "PING Check · Tools",
   description: "Subnet or tag/IP list: ICMP plus TCP fallback.",
 };
 

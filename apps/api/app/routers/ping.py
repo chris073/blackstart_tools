@@ -1,5 +1,6 @@
 import asyncio
 import json
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Request
@@ -44,6 +45,7 @@ class PingResultOut(BaseModel):
 class PingCheckResponse(BaseModel):
     results: List[PingResultOut]
     count: int
+    checked_at: str = Field(..., description="UTC ISO-8601 time when the check finished on the server.")
 
 
 def _normalize_items(req: PingCheckRequest) -> List[tuple]:
@@ -94,7 +96,8 @@ async def ping_check(body: PingCheckRequest) -> PingCheckResponse:
         )
     raw = await check_many(items, ports)
     results = [PingResultOut(**r) for r in raw]
-    return PingCheckResponse(results=results, count=len(results))
+    checked_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return PingCheckResponse(results=results, count=len(results), checked_at=checked_at)
 
 
 @router.post("/check/stream")
@@ -118,8 +121,12 @@ async def ping_check_stream(request: Request, body: PingCheckRequest) -> Streami
             st, rtt, open_ports = await check_host(host, ports)
             return result_dict(tag, host, st, rtt, open_ports)
 
+    def _utc_now_iso() -> str:
+        return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
     async def ndjson():
-        yield json.dumps({"event": "start", "total": len(items)}) + "\n"
+        started_at = _utc_now_iso()
+        yield json.dumps({"event": "start", "total": len(items), "started_at": started_at}) + "\n"
         pending: Dict[asyncio.Task, tuple] = {
             asyncio.create_task(run_one(t, h)): (t, h) for t, h in items
         }
@@ -145,12 +152,15 @@ async def ping_check_stream(request: Request, body: PingCheckRequest) -> Streami
                         pass
                     except Exception as exc:  # pragma: no cover
                         err_row = {**result_dict(tag, host, PingStatus.down, None, []), "detail": str(exc)}
-                        yield json.dumps(err_row) + "\n"
+                        yield json.dumps({"event": "result", **err_row}) + "\n"
         finally:
             for t in list(pending.keys()):
                 t.cancel()
             if pending:
                 await asyncio.gather(*pending.keys(), return_exceptions=True)
-            yield json.dumps({"event": "end", "cancelled": cancelled}) + "\n"
+            completed_at = _utc_now_iso()
+            yield json.dumps(
+                {"event": "end", "cancelled": cancelled, "started_at": started_at, "completed_at": completed_at}
+            ) + "\n"
 
     return StreamingResponse(ndjson(), media_type="application/x-ndjson")

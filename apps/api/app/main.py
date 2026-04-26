@@ -5,8 +5,9 @@ from app.routers.admin import router as admin_router
 from app.routers.athena import router as athena_router
 from app.routers.health import router as health_router
 from app.routers.ping import router as ping_router
+from app.routers.terminal import router as terminal_router
 
-app = FastAPI(title="Blackstart Tools API")
+app = FastAPI(title="Tools API")
 
 # Browser Origin must be allowed for /health from the tools UI. Match localhost, loopback, common
 # private LAN ranges, and Tailscale-style 100.x so dev works when you open Next via Network URL.
@@ -25,6 +26,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
     ],
     allow_origin_regex=_PRIVATE_LAN_TAILSCALE_ORIGIN,
     allow_credentials=True,
@@ -36,4 +39,5 @@ app.include_router(health_router)
 app.include_router(admin_router)
 app.include_router(athena_router)
 app.include_router(ping_router)
+app.include_router(terminal_router)
 

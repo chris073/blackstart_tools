@@ -60,8 +60,19 @@ function parseTagIpColumns(tagRaw: string, ipRaw: string): { tag: string; host: 
   return out;
 }
 
-function resultsToTsv(rows: PingResult[]): string {
+function resultsToTsv(
+  rows: PingResult[],
+  stamp: { completedAt: string | null; startedAt: string | null; cancelled: boolean },
+): string {
+  const metaLines: string[] = [];
+  if (stamp.completedAt) {
+    const suffix = stamp.cancelled ? " — stopped before all targets finished" : "";
+    metaLines.push(`# Ping check completed (UTC): ${stamp.completedAt}${suffix}`);
+  } else if (stamp.startedAt) {
+    metaLines.push(`# Ping check started (UTC), partial: ${stamp.startedAt}`);
+  }
   const lines = [
+    ...metaLines,
     TSV_HEADER,
     ...rows.map((r) => {
       const rtt = r.rtt_ms == null ? "" : String(r.rtt_ms);
@@ -70,6 +81,13 @@ function resultsToTsv(rows: PingResult[]): string {
     }),
   ];
   return `${lines.join("\n")}\n`;
+}
+
+function formatReportInstant(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium" });
 }
 
 function parseNdjsonChunk(buf: string): { events: Record<string, unknown>[]; rest: string } {
@@ -111,45 +129,43 @@ function annunciatorSub(row: PingResult): string {
 
 function AnnunciatorCard({ row }: { row: PingResult }) {
   const sub = annunciatorSub(row);
+  const title = `${row.tag} · ${row.host} · ${sub}`;
   const { border, glow, bar, label } =
     row.status === "icmp_ok"
       ? {
-          border: "border-emerald-500/55",
-          glow: "shadow-[0_0_14px_rgba(16,185,129,0.14)]",
+          border: "border-emerald-500/45",
+          glow: "shadow-[0_0_10px_rgba(16,185,129,0.12)]",
           bar: "bg-emerald-400",
           label: "ICMP OK",
         }
       : row.status === "tcp_only"
         ? {
-            border: "border-amber-500/50",
-            glow: "shadow-[0_0_12px_rgba(245,158,11,0.12)]",
+            border: "border-amber-500/40",
+            glow: "shadow-[0_0_8px_rgba(245,158,11,0.1)]",
             bar: "bg-amber-400",
             label: "TCP",
           }
         : {
-            border: "border-rose-500/45",
-            glow: "shadow-[0_0_10px_rgba(244,63,94,0.1)]",
+            border: "border-rose-500/35",
+            glow: "shadow-[0_0_6px_rgba(244,63,94,0.08)]",
             bar: "bg-rose-500",
             label: "DOWN",
           };
 
   return (
     <div
-      className={`relative flex h-[3.625rem] w-full min-w-0 flex-col rounded-lg border bg-bsl-panel/70 px-1.5 py-1 ${border} ${glow} transition-[transform,box-shadow] duration-300`}
+      title={title}
+      className={`relative flex h-11 w-full min-w-0 flex-col rounded border bg-bsl-panel/75 px-1 py-px ${border} ${glow}`}
     >
-      <div className={`absolute left-0 right-0 top-0 h-0.5 rounded-t-[0.4rem] ${bar} opacity-90`} aria-hidden />
-      <div className="flex min-h-0 flex-1 items-start justify-between gap-1">
+      <div className={`shrink-0 rounded-t-[0.2rem] ${bar} h-0.5 opacity-90`} aria-hidden />
+      <div className="flex min-h-0 flex-1 items-start justify-between gap-1 px-1 py-0.5 leading-snug">
         <div className="min-w-0 flex-1">
-          <div className="text-[7px] font-bold leading-none tracking-[0.12em] text-bsl-muted/90">{label}</div>
-          <div className="mt-0.5 truncate text-[11px] font-semibold leading-tight text-bsl-text" title={row.tag}>
-            {row.tag}
-          </div>
-          <div className="truncate font-mono text-[9px] leading-tight text-bsl-muted" title={row.host}>
-            {row.host}
-          </div>
+          <div className="text-[7px] font-bold leading-tight tracking-[0.12em] text-bsl-muted/90">{label}</div>
+          <div className="truncate text-[11px] font-semibold leading-tight text-bsl-text">{row.tag}</div>
+          <div className="truncate font-mono text-[9px] leading-tight text-bsl-muted">{row.host}</div>
         </div>
         <div
-          className="shrink-0 self-end font-mono text-[7px] leading-none text-bsl-muted/75"
+          className="max-w-[42%] shrink-0 self-end truncate text-right font-mono text-[7px] leading-tight text-bsl-muted/75"
           title={sub}
         >
           {sub}
@@ -202,11 +218,20 @@ export default function PingCheckPage() {
   const [error, setError] = useState<string | null>(null);
   const [copyFlash, setCopyFlash] = useState(false);
   const [progress, setProgress] = useState<{ total: number; done: number } | null>(null);
+  const [reportStartedAt, setReportStartedAt] = useState<string | null>(null);
+  const [reportCompletedAt, setReportCompletedAt] = useState<string | null>(null);
+  const [runCancelled, setRunCancelled] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    setTsvOut(resultsToTsv(results));
-  }, [results]);
+    setTsvOut(
+      resultsToTsv(results, {
+        completedAt: reportCompletedAt,
+        startedAt: reportStartedAt,
+        cancelled: runCancelled,
+      }),
+    );
+  }, [results, reportCompletedAt, reportStartedAt, runCancelled]);
 
   useEffect(() => {
     return () => abortRef.current?.abort();
@@ -224,6 +249,9 @@ export default function PingCheckPage() {
     setError(null);
     setProgress(null);
     setResults([]);
+    setReportStartedAt(null);
+    setReportCompletedAt(null);
+    setRunCancelled(false);
     setBusy(true);
 
     const tcpPorts = parsePortsInput(portsInput);
@@ -290,6 +318,10 @@ export default function PingCheckPage() {
           const ev = msg.event;
           if (ev === "start" && typeof msg.total === "number") {
             setProgress({ total: msg.total, done: 0 });
+            if (typeof msg.started_at === "string") {
+              setReportStartedAt(msg.started_at);
+              setReportCompletedAt(null);
+            }
           } else if (ev === "result") {
             const status = msg.status as PingStatus;
             if (status === "icmp_ok" || status === "tcp_only" || status === "down") {
@@ -314,6 +346,8 @@ export default function PingCheckPage() {
             setProgress((p) => (p ? { ...p, done: p.done + 1 } : null));
           } else if (ev === "end") {
             setProgress(null);
+            if (typeof msg.completed_at === "string") setReportCompletedAt(msg.completed_at);
+            setRunCancelled(Boolean(msg.cancelled));
           }
         }
       }
@@ -321,7 +355,11 @@ export default function PingCheckPage() {
       if (buffer.trim()) {
         try {
           const msg = JSON.parse(buffer.trim()) as Record<string, unknown>;
-          if (msg.event === "end") setProgress(null);
+          if (msg.event === "end") {
+            setProgress(null);
+            if (typeof msg.completed_at === "string") setReportCompletedAt(msg.completed_at);
+            setRunCancelled(Boolean(msg.cancelled));
+          }
         } catch {
           /* trailing fragment */
         }
@@ -356,7 +394,20 @@ export default function PingCheckPage() {
       (a, b) =>
         a.tag.localeCompare(b.tag, undefined, { sensitivity: "base" }) || a.host.localeCompare(b.host),
     );
+    const utcStamp = reportCompletedAt ?? reportStartedAt;
+    const titleRow = utcStamp
+      ? [
+          `Ping check${reportCompletedAt ? " completed" : " (partial)"} (UTC): ${utcStamp}${
+            reportCompletedAt && runCancelled ? " — stopped early" : ""
+          }`,
+          "",
+          "",
+          "",
+          "",
+        ]
+      : null;
     const aoa: string[][] = [
+      ...(titleRow ? [titleRow] : []),
       ["Tag", "IP address", "Ping (ms)", "Open ports", "Status"],
       ...rows.map((r) => [
         r.tag,
@@ -371,12 +422,26 @@ export default function PingCheckPage() {
     const hostW = Math.min(32, Math.max(12, ...rows.map((r) => r.host.length)) + 2);
     const portColW = Math.min(28, Math.max(12, ...rows.map((r) => formatOpenPorts(r.open_ports).length)) + 2);
     ws["!cols"] = [{ wch: tagW }, { wch: hostW }, { wch: 10 }, { wch: portColW }, { wch: 12 }];
-    ws["!autofilter"] = { ref: `A1:E${rows.length + 1}` };
+    const headerRow = titleRow ? 2 : 1;
+    ws["!autofilter"] = { ref: `A${headerRow}:E${rows.length + headerRow}` };
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Targets");
     const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
     XLSX.writeFile(wb, `ping_targets_${stamp}.xlsx`);
-  }, [results]);
+  }, [results, reportCompletedAt, reportStartedAt, runCancelled]);
+
+  const reportStampLine = useMemo(() => {
+    const localDone = formatReportInstant(reportCompletedAt);
+    const localStart = formatReportInstant(reportStartedAt);
+    if (reportCompletedAt && localDone) {
+      const suffix = runCancelled ? " · stopped before all targets finished" : "";
+      return `Check completed ${localDone} (UTC ${reportCompletedAt})${suffix}`;
+    }
+    if (reportStartedAt && localStart) {
+      return `Check started ${localStart} (UTC ${reportStartedAt}) — run in progress or connection lost before completion`;
+    }
+    return null;
+  }, [reportCompletedAt, reportStartedAt, runCancelled]);
 
   const sortedForDisplay = useMemo(() => {
     const rank = (s: PingStatus) => (s === "down" ? 0 : s === "tcp_only" ? 1 : 2);
@@ -497,7 +562,12 @@ export default function PingCheckPage() {
 
       <section className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-2">
-          <h2 className="text-sm font-semibold tracking-tight text-bsl-text">Annunciator</h2>
+          <div>
+            <h2 className="text-sm font-semibold tracking-tight text-bsl-text">Annunciator</h2>
+            {reportStampLine ? (
+              <p className="mt-1 text-[11px] text-bsl-muted/90">{reportStampLine}</p>
+            ) : null}
+          </div>
           {progress ? (
             <span className="text-[11px] text-bsl-muted">
               {progress.done} / {progress.total}
@@ -512,20 +582,20 @@ export default function PingCheckPage() {
             <span className="text-[11px] text-bsl-muted">Run checks</span>
           )}
         </div>
-        <div
-          className={`overflow-x-auto rounded-2xl border border-bsl-border bg-bsl-panel/25 p-4 ${
-            busy ? "animate-pulse" : ""
-          }`}
-        >
-          {sortedForDisplay.length === 0 ? (
-            <p className="min-h-[4rem] w-full py-6 text-center text-sm text-bsl-muted/80">No results yet.</p>
-          ) : (
-            <div className="grid min-w-[400px] grid-cols-5 gap-2">
-              {sortedForDisplay.map((row, i) => (
-                <AnnunciatorCard key={`${row.host}-${row.tag}-${i}`} row={row} />
-              ))}
-            </div>
-          )}
+        <div className="h-[38rem] max-h-[min(38rem,62dvh)] shrink-0 overflow-hidden rounded-2xl border border-bsl-border bg-bsl-panel/25">
+          <div className="h-full overflow-y-auto overflow-x-auto overscroll-contain p-2 [scrollbar-gutter:stable]">
+            {sortedForDisplay.length === 0 ? (
+              <div className="flex h-full min-h-[8rem] items-center justify-center px-4">
+                <p className="text-center text-sm text-bsl-muted/80">No results yet.</p>
+              </div>
+            ) : (
+              <div className="grid min-w-[280px] grid-cols-5 gap-1 sm:min-w-[320px] sm:grid-cols-6 md:grid-cols-7">
+                {sortedForDisplay.map((row, i) => (
+                  <AnnunciatorCard key={`${row.host}-${row.tag}-${i}`} row={row} />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
@@ -563,7 +633,9 @@ export default function PingCheckPage() {
           aria-label="Tab-separated results for copy and paste"
           onFocus={(e) => e.target.select()}
         />
-        <p className="text-[11px] text-bsl-muted/85">Select all on focus; or Copy all. Header row is always included.</p>
+        <p className="text-[11px] text-bsl-muted/85">
+          Select all on focus; or Copy all. Comment line with UTC time (when present) precedes the header row.
+        </p>
       </section>
     </div>
   );

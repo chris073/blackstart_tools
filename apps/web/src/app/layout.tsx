@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import { AppShell } from "@/components/AppShell";
 
 export const metadata: Metadata = {
-  title: "Blackstart Tools",
-  description: "Engineering tools (Athena, API). Public site: blackstart_web.",
+  title: "Tools",
+  description: "Engineering utilities and API-backed tools.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
