@@ -2,7 +2,13 @@ import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
 import { SiteNav } from "@/components/SiteNav";
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  showPrivateLocal,
+}: {
+  children: React.ReactNode;
+  showPrivateLocal: boolean;
+}) {
   return (
     <div className="min-h-screen">
       <div className="mx-auto max-w-6xl px-5 py-6">
@@ -15,7 +21,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </Link>
           <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
-            <SiteNav />
+            <SiteNav showPrivateLocal={showPrivateLocal} />
           </div>
         </header>
 

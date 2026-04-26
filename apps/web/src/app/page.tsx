@@ -1,7 +1,13 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { BrandLogo } from "@/components/BrandLogo";
+import { isLocalHost } from "@/lib/local-dev";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";
+  const showPrivateLocal = isLocalHost(host);
+
   return (
     <div className="space-y-10 pb-8">
       <section className="text-center">
@@ -23,12 +29,14 @@ export default function HomePage() {
         </p>
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-          <Link
-            href="/tools"
-            className="rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-5 py-2.5 text-sm font-medium text-emerald-50 shadow-[0_0_28px_rgba(16,185,129,0.18)] transition hover:border-emerald-400/55 hover:bg-emerald-500/25"
-          >
-            Open tools
-          </Link>
+          {showPrivateLocal ? (
+            <Link
+              href="/tools"
+              className="rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-5 py-2.5 text-sm font-medium text-emerald-50 shadow-[0_0_28px_rgba(16,185,129,0.18)] transition hover:border-emerald-400/55 hover:bg-emerald-500/25"
+            >
+              Open tools
+            </Link>
+          ) : null}
           <Link
             href="/about"
             className="rounded-xl border border-bsl-border bg-bsl-panel/50 px-5 py-2.5 text-sm text-bsl-muted transition hover:border-white/15 hover:bg-bsl-panel hover:text-bsl-text"
