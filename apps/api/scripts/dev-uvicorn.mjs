@@ -132,7 +132,11 @@ function run(i) {
     cwd: root,
     stdio: "inherit",
     shell: useShell,
-    env: process.env,
+    env: {
+      ...process.env,
+      // Lets POST /admin/reload bump a watched file; omit when --no-reload (prod-style).
+      ...(noReload ? {} : { BLACKSTART_ALLOW_RELOAD: "1" }),
+    },
   });
 
   child.on("error", (err) => {

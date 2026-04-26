@@ -1,37 +1,38 @@
 import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
-import { SiteNav } from "@/components/SiteNav";
+import { ToolHomeNav } from "@/components/ToolHomeNav";
 
-export function AppShell({
-  children,
-  showPrivateLocal,
-}: {
-  children: React.ReactNode;
-  showPrivateLocal: boolean;
-}) {
+export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen">
       <div className="mx-auto max-w-6xl px-5 py-6">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <Link href="/" className="flex items-center gap-3">
+          <Link href="/tools" className="flex items-center gap-3" aria-label="Blackstart Tools™ home">
             <BrandLogo variant="header" priority />
             <div>
-              <div className="text-sm font-semibold tracking-tight">Blackstart Labs</div>
-              <div className="text-xs text-bsl-muted">blackstart_tools</div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-sm font-semibold tracking-tight">Blackstart Tools</span>
+                <span
+                  className="text-[0.5rem] font-normal leading-none tracking-widest text-bsl-muted/40"
+                  aria-hidden
+                >
+                  TM
+                </span>
+              </div>
+              <div className="text-xs text-bsl-muted">blackstart_tools · local with blackstart_web</div>
             </div>
           </Link>
           <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
-            <SiteNav showPrivateLocal={showPrivateLocal} />
+            <ToolHomeNav />
           </div>
         </header>
 
         <main className="mt-6">{children}</main>
 
         <footer className="mt-10 border-t border-bsl-border pt-6 text-xs text-bsl-muted">
-          Blackstart Labs — internal tools
+          Internal tools — pair with blackstart_web for the public labs site
         </footer>
       </div>
     </div>
   );
 }
-

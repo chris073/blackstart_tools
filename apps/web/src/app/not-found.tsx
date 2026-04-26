@@ -5,8 +5,8 @@ export default function NotFound() {
     <div className="space-y-4 py-16 text-center">
       <h1 className="text-xl font-semibold tracking-tight">Page not found</h1>
       <p className="text-sm text-bsl-muted">That path does not exist or was moved.</p>
-      <Link href="/" className="inline-block text-sm text-emerald-200/90 hover:text-emerald-100">
-        Back home
+      <Link href="/tools" className="inline-block text-sm text-emerald-200/90 hover:text-emerald-100">
+        Tools
       </Link>
     </div>
   );

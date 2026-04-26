@@ -1,4 +1,5 @@
 .env
+apps/api/app/.reload_touch
 apps/api/athena/.env.local
 apps/api/.env.local
 apps/web/.env.local
