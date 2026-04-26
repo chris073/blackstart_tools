@@ -8,14 +8,25 @@ from app.routers.ping import router as ping_router
 
 app = FastAPI(title="Blackstart Tools API")
 
-# Browser Origin must match exactly; dev servers often use 127.0.0.1 vs localhost or alternate ports.
+# Browser Origin must be allowed for /health from the tools UI. Match localhost, loopback, common
+# private LAN ranges, and Tailscale-style 100.x so dev works when you open Next via Network URL.
+_PRIVATE_LAN_TAILSCALE_ORIGIN = (
+    r"https?://("
+    r"localhost|127\.0\.0\.1|"
+    r"192\.168\.\d{1,3}\.\d{1,3}|"
+    r"10\.\d{1,3}\.\d{1,3}\.\d{1,3}|"
+    r"172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}|"
+    r"100\.\d{1,3}\.\d{1,3}\.\d{1,3}"
+    r")(:\d+)?$"
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ],
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_origin_regex=_PRIVATE_LAN_TAILSCALE_ORIGIN,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
