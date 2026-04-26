@@ -7,8 +7,10 @@ const LINKS = [
   { href: "/", label: "HOME" },
   { href: "/blog", label: "BLOG" },
   { href: "/tools", label: "TOOLS" },
+  { href: "/products", label: "PRODUCTS" },
   { href: "/handbook", label: "HANDBOOK" },
   { href: "/about", label: "ABOUT" },
+  { href: "/login", label: "LOGIN" },
 ] as const;
 
 function linkActive(pathname: string, href: string) {

@@ -1,9 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { ClientOnly } from "@/components/ClientOnly";
 import { apiBaseUrl } from "@/lib/config";
+import {
+  formatSavedQueryAsTsEntry,
+  listAllSavedQueries,
+  upsertStoredSavedQuery,
+  type AthenaQuerySnapshot,
+} from "./savedQueries";
 
 type DatabasesResponse = { items: string[]; message: string; source_path?: string };
 type KeysResponse = { items: string[]; sql: string; message: string; rows: string[][] };
@@ -89,6 +95,37 @@ const TIME_OPTIONS_24H = (() => {
   return out;
 })();
 
+const SAMPLE_PERIODS = [
+  { id: "1s", label: "1 second", seconds: 1 },
+  { id: "2s", label: "2 seconds", seconds: 2 },
+  { id: "4s", label: "4 seconds", seconds: 4 },
+  { id: "1m", label: "1 minute", seconds: 60 },
+  { id: "2m", label: "2 minutes", seconds: 120 },
+  { id: "4m", label: "4 minutes", seconds: 240 },
+  { id: "10m", label: "10 minutes", seconds: 600 },
+  { id: "1h", label: "1 hour", seconds: 3600 },
+  { id: "2h", label: "2 hours", seconds: 7200 },
+  { id: "4h", label: "4 hours", seconds: 14400 },
+] as const;
+
+function samplePeriodIdFromSeconds(sec: number): string {
+  const hit = SAMPLE_PERIODS.find((p) => p.seconds === sec);
+  return hit ? hit.id : "1m";
+}
+
+function parseLabelKeys(labels: string, jsonKey: string): Set<string> {
+  const lab = labels.trim();
+  if (lab === "*") return new Set();
+  if (lab) return new Set(lab.split(",").map((x) => x.trim()).filter(Boolean));
+  const j = jsonKey.trim();
+  return j ? new Set([j]) : new Set();
+}
+
+function isKeySelected(r: BuilderRow, k: string) {
+  if (r.labels.trim() === "*") return false;
+  return parseLabelKeys(r.labels, r.json_key).has(k);
+}
+
 const DURATION_PRESETS = [
   { id: "15s", label: "15 seconds", ms: 15_000 },
   { id: "30s", label: "30 seconds", ms: 30_000 },
@@ -111,6 +148,7 @@ const DURATION_PRESETS = [
 ] as const;
 
 export default function AthenaToolPage() {
+  const lastDbRef = useRef("");
   const [database, setDatabase] = useState("");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
@@ -119,12 +157,17 @@ export default function AthenaToolPage() {
   const [rangeTimeState, setRangeTimeState] = useState(() => defaultDateAndTime().time);
   const [durationPreset, setDurationPreset] = useState<string>("1m");
   const [customDurationHours, setCustomDurationHours] = useState("1");
+  const [samplePeriodId, setSamplePeriodId] = useState<string>("1m");
 
   const [dbChoices, setDbChoices] = useState<string[]>([]);
   const [dbMeta, setDbMeta] = useState<{ message: string; path: string }>({ message: "", path: "" });
   const [keysByDevice, setKeysByDevice] = useState<Record<string, string[]>>({});
 
   const [rows, setRows] = useState<BuilderRow[]>(() => [createRow()]);
+
+  const [saveQueryName, setSaveQueryName] = useState("");
+  const [savedQueriesTick, setSavedQueriesTick] = useState(0);
+  const [loadQueryValue, setLoadQueryValue] = useState("");
 
   const [query, setQuery] = useState("");
   const [output, setOutput] = useState("");
@@ -190,10 +233,21 @@ export default function AthenaToolPage() {
   useEffect(() => {
     const s = database.trim();
     if (!s) return;
-    setRows((prev) =>
-      prev.map((r) => (r.device_id.trim() === "" ? { ...r, device_id: s } : r)),
+    const upper = s.toUpperCase();
+    const prev = lastDbRef.current.trim();
+    setRows((prevRows) =>
+      prevRows.map((r) => {
+        const d = r.device_id.trim();
+        if (!d || (prev && d.toUpperCase() === prev.toUpperCase())) {
+          return { ...r, device_id: upper };
+        }
+        return r;
+      }),
     );
+    lastDbRef.current = s;
   }, [database]);
+
+  const savedQueryList = useMemo(() => listAllSavedQueries(), [savedQueriesTick]);
 
   const canBuild = useMemo(() => {
     if (!database.trim() || !start || !end) return false;
@@ -212,9 +266,66 @@ export default function AthenaToolPage() {
 
   function addRow() {
     setRows((prev) => {
-      const fallbackDev = database.trim() || prev[prev.length - 1]?.device_id || "";
+      const fallbackDev =
+        database.trim().toUpperCase() || prev[prev.length - 1]?.device_id || "";
       return [...prev, createRow({ device_id: fallbackDev })];
     });
+  }
+
+  function toggleRowLabelKey(r: BuilderRow, key: string) {
+    const set = parseLabelKeys(r.labels, r.json_key);
+    if (set.has(key)) set.delete(key);
+    else set.add(key);
+    const nextLabels = [...set].sort().join(", ");
+    updateRowById(r.id, { labels: nextLabels, json_key: "" });
+  }
+
+  function applySavedQuerySnapshot(s: AthenaQuerySnapshot) {
+    setDatabase(s.database);
+    setRangeDateState(s.rangeDateState);
+    setRangeTimeState(s.rangeTimeState);
+    setDurationPreset(s.durationPreset);
+    setCustomDurationHours(s.customDurationHours);
+    setSamplePeriodId(samplePeriodIdFromSeconds(s.sampleBucketSeconds));
+    setRows(
+      s.rows.length
+        ? s.rows.map((row) => createRow({ ...row }))
+        : [createRow()],
+    );
+    setKeysByDevice({});
+    setQuery("");
+    setOutput("");
+    setResultRows([]);
+    setError(null);
+  }
+
+  function saveCurrentQuery() {
+    const name = saveQueryName.trim();
+    if (!name) {
+      setError("Enter a name before saving.");
+      return;
+    }
+    setError(null);
+    const sampleBucketSeconds =
+      SAMPLE_PERIODS.find((p) => p.id === samplePeriodId)?.seconds ?? 60;
+    const snapshot: AthenaQuerySnapshot = {
+      database,
+      rangeDateState,
+      rangeTimeState,
+      durationPreset,
+      customDurationHours,
+      sampleBucketSeconds,
+      rows: rows.map(({ device_id, json_key, labels, keyFilter }) => ({
+        device_id,
+        json_key,
+        labels,
+        keyFilter,
+      })),
+    };
+    upsertStoredSavedQuery({ name, snapshot });
+    setSavedQueriesTick((t) => t + 1);
+    const ts = formatSavedQueryAsTsEntry({ name, snapshot });
+    void navigator.clipboard.writeText(ts).catch(() => {});
   }
 
   function exportExcel() {
@@ -251,10 +362,13 @@ export default function AthenaToolPage() {
     setError(null);
     setBusy("Building SQL…");
     try {
+      const sample_bucket_seconds =
+        SAMPLE_PERIODS.find((p) => p.id === samplePeriodId)?.seconds ?? 60;
       const res = await apiPost<BuildResponse>("/athena/build/timeseries-compare", {
         database,
         start,
         end,
+        sample_bucket_seconds,
         rows: rows.map(({ device_id, json_key, labels }) => ({ device_id, json_key, labels })),
       });
       setQuery(res.sql);
@@ -420,15 +534,75 @@ export default function AthenaToolPage() {
                 <span> (end exclusive)</span>
               </p>
             ) : null}
+            <label className="mt-2 block space-y-1">
+              <span className="text-xs text-bsl-muted">Sample period (SQL bucket)</span>
+              <select
+                value={samplePeriodId}
+                onChange={(e) => setSamplePeriodId(e.target.value)}
+                className="w-full max-w-md rounded-xl border border-bsl-border bg-bsl-panel2 px-3 py-2 text-sm text-bsl-text outline-none focus:border-white/20"
+              >
+                {SAMPLE_PERIODS.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
         </div>
       </div>
 
       <div className="rounded-2xl border border-bsl-border bg-bsl-panel/60 p-5 backdrop-blur">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <label className="min-w-[200px] flex-1 space-y-1">
+            <span className="text-xs text-bsl-muted">Load saved query</span>
+            <select
+              value={loadQueryValue}
+              onChange={(e) => {
+                const v = e.target.value;
+                setLoadQueryValue(v);
+                if (!v) return;
+                const found = savedQueryList.find((q) => q.name === v);
+                if (found) applySavedQuerySnapshot(found.snapshot);
+                setLoadQueryValue("");
+              }}
+              className="w-full rounded-xl border border-bsl-border bg-bsl-panel2 px-3 py-2 text-sm text-bsl-text outline-none focus:border-white/20"
+            >
+              <option value="">— {savedQueryList.length} saved —</option>
+              {savedQueryList.map((q) => (
+                <option key={q.name} value={q.name}>
+                  {q.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="min-w-[160px] flex-1 space-y-1">
+            <span className="text-xs text-bsl-muted">Save as (browser + copy TS)</span>
+            <input
+              value={saveQueryName}
+              onChange={(e) => setSaveQueryName(e.target.value)}
+              placeholder="Name…"
+              className="w-full rounded-xl border border-bsl-border bg-bsl-panel2 px-3 py-2 text-sm text-bsl-text outline-none focus:border-white/20"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => saveCurrentQuery()}
+            className="rounded-xl border border-bsl-border bg-bsl-panel2 px-4 py-2 text-sm text-bsl-muted hover:text-bsl-text"
+          >
+            Save query
+          </button>
+        </div>
+        <p className="mb-3 text-[11px] leading-snug text-bsl-muted">
+          Saves go to local storage and the preset is copied for pasting into{" "}
+          <span className="font-mono text-bsl-text/80">savedQueries.ts</span>. Repo presets live in{" "}
+          <span className="font-mono text-bsl-text/80">ATHENA_SAVED_QUERIES_BUILTIN</span>.
+        </p>
         <div className="mb-3 text-xs text-bsl-muted">
-          Run <span className="text-bsl-text">Keys</span>, then use <span className="text-bsl-text">Search keys</span> and
-          click a key to choose the series. <span className="text-bsl-text">labels</span> is optional: comma-separated
-          keys or <span className="text-bsl-text">*</span> for all (build time).
+          Run <span className="text-bsl-text">Keys</span>, then toggle keys below to fill{" "}
+          <span className="text-bsl-text">labels</span> (comma-separated). Type{" "}
+          <span className="font-mono text-bsl-text/80">*</span> in labels for all keys at build time.{" "}
+          <span className="text-bsl-text">device_id</span> tracks the schema name in ALL CAPS.
         </div>
         <div className="space-y-4">
           {rows.map((r, i) => {
@@ -496,9 +670,9 @@ export default function AthenaToolPage() {
                           <button
                             key={k}
                             type="button"
-                            onClick={() => updateRowById(r.id, { json_key: k })}
+                            onClick={() => toggleRowLabelKey(r, k)}
                             className={`rounded-lg border px-2 py-1 font-mono text-xs transition hover:border-white/20 ${
-                              r.json_key === k
+                              isKeySelected(r, k)
                                 ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100"
                                 : "border-bsl-border bg-bsl-panel2 text-bsl-text"
                             }`}
@@ -512,9 +686,16 @@ export default function AthenaToolPage() {
                     </div>
                   </div>
                 ) : null}
-                {r.json_key ? (
+                {r.labels.trim() === "*" ? (
+                  <p className="mt-2 text-[11px] text-amber-200/90">
+                    labels is <span className="font-mono">*</span> — all keys at build time.
+                  </p>
+                ) : r.labels.trim() || r.json_key ? (
                   <p className="mt-2 text-[11px] text-bsl-muted">
-                    Selected: <span className="font-mono text-bsl-text/90">{r.json_key}</span>
+                    labels:{" "}
+                    <span className="font-mono text-bsl-text/90">
+                      {r.labels.trim() || r.json_key}
+                    </span>
                   </p>
                 ) : null}
               </div>

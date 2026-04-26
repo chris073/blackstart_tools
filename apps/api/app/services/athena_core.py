@@ -145,7 +145,22 @@ def _qb_cte_name_for_column(col_alias: str, used_cte_lower: Set[str]) -> str:
     return name
 
 
-def build_timeseries_compare_query(database: str, start_ts: str, end_ts: str, rows: List[Tuple[str, str]]) -> str:
+def _bucket_ts_sql(date_col: str, bucket_seconds: int) -> str:
+    """Athena/Trino: align timestamps to fixed-width buckets from Unix epoch."""
+    n = int(bucket_seconds)
+    if n < 1:
+        n = 60
+    ts_expr = "from_iso8601_timestamp({})".format(date_col)
+    return "from_unixtime(floor(to_unixtime({ts}) / {n}) * {n})".format(ts=ts_expr, n=n)
+
+
+def build_timeseries_compare_query(
+    database: str,
+    start_ts: str,
+    end_ts: str,
+    rows: List[Tuple[str, str]],
+    sample_bucket_seconds: int = 60,
+) -> str:
     if not rows:
         raise ValueError("no series rows")
     start_dt = _parse_dt_for_range(start_ts, False)
@@ -154,6 +169,7 @@ def build_timeseries_compare_query(database: str, start_ts: str, end_ts: str, ro
     end_lit = _normalize_qb_timestamp(end_ts, True).replace("'", "''")
     from_tbl = _from_database_device(database)
     part_clause = _partition_sql_clause(_partition_days_half_open(start_dt, end_dt))
+    bucket_sql = _bucket_ts_sql(DATE_COL, sample_bucket_seconds)
 
     used_col: Set[str] = set()
     used_cte: Set[str] = set()
@@ -176,7 +192,7 @@ def build_timeseries_compare_query(database: str, start_ts: str, end_ts: str, ro
     for sp in specs:
         cte = """{cte} AS (
     SELECT
-        date_trunc('minute', from_iso8601_timestamp({dcol})) AS ts,
+        {bucket} AS ts,
         AVG(TRY_CAST(json_extract_scalar({dc}, {jp}) AS DOUBLE)) AS {col}
     FROM {from_tbl}
     WHERE device_id = {dv}{part}
@@ -186,6 +202,7 @@ def build_timeseries_compare_query(database: str, start_ts: str, end_ts: str, ro
 )""".format(
             cte=sp["cte"],
             col=sp["col"],
+            bucket=bucket_sql,
             dcol=DATE_COL,
             dc=DATA_COL,
             jp=sp["path_lit"],

@@ -47,6 +47,7 @@ class BuildTimeseriesRequest(BaseModel):
     database: str = Field(..., min_length=1)
     start: str = Field(..., min_length=1)
     end: str = Field(..., min_length=1)
+    sample_bucket_seconds: int = Field(60, ge=1, le=86_400)
     rows: List[BuilderRow] = Field(..., min_length=1)
 
 
@@ -123,6 +124,12 @@ def build_timeseries(req: BuildTimeseriesRequest) -> BuildTimeseriesResponse:
     if not pairs:
         raise HTTPException(status_code=400, detail="No series rows (device_id + json key or labels).")
 
-    sql = build_timeseries_compare_query(req.database, req.start, req.end, pairs)
+    sql = build_timeseries_compare_query(
+        req.database,
+        req.start,
+        req.end,
+        pairs,
+        sample_bucket_seconds=req.sample_bucket_seconds,
+    )
     return BuildTimeseriesResponse(sql=sql, expanded_pairs=expanded)
 
