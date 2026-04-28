@@ -1,7 +1,5 @@
 "use client";
 
-import { FitAddon } from "@xterm/addon-fit";
-import { Terminal } from "@xterm/xterm";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "@xterm/xterm/css/xterm.css";
 import { apiBaseUrl } from "@/lib/config";
@@ -13,13 +11,16 @@ import {
   type TerminalProfile,
 } from "@/lib/terminalProfiles";
 
+type XtermTerminal = import("@xterm/xterm").Terminal;
+type XtermFitAddon = import("@xterm/addon-fit").FitAddon;
+
 function httpToWsBase(httpUrl: string): string {
   if (httpUrl.startsWith("https://")) return `wss://${httpUrl.slice("https://".length)}`;
   if (httpUrl.startsWith("http://")) return `ws://${httpUrl.slice("http://".length)}`;
   return httpUrl;
 }
 
-function safeFit(fit: FitAddon, term: Terminal): boolean {
+function safeFit(fit: XtermFitAddon, term: XtermTerminal): boolean {
   try {
     const d = fit.proposeDimensions();
     if (!d || d.cols < 1 || d.rows < 1) return false;
@@ -76,8 +77,8 @@ const emptyForm = {
 
 export default function TerminalToolPage() {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const termRef = useRef<Terminal | null>(null);
-  const fitRef = useRef<FitAddon | null>(null);
+  const termRef = useRef<XtermTerminal | null>(null);
+  const fitRef = useRef<XtermFitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const jumpKeyInputRef = useRef<HTMLInputElement | null>(null);
   const targetKeyInputRef = useRef<HTMLInputElement | null>(null);
@@ -127,44 +128,56 @@ export default function TerminalToolPage() {
     const el = containerRef.current;
     if (!el) return;
 
-    const term = new Terminal({
-      cursorBlink: true,
-      fontSize: 14,
-      fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-      theme: {
-        background: "#0c0e12",
-        foreground: "#e6e9ef",
-        cursor: "#3ecf8e",
-      },
-    });
-    const fit = new FitAddon();
-    term.loadAddon(fit);
-    term.open(el);
-    termRef.current = term;
-    fitRef.current = fit;
-    runAfterLayout(() => {
-      safeFit(fit, term);
-    });
-    term.onData((data) => {
-      const socket = wsRef.current;
-      if (socket && socket.readyState === WebSocket.OPEN) socket.send(data);
-    });
+    let disposed = false;
+    let ro: ResizeObserver | null = null;
 
-    const ro = new ResizeObserver(() => {
-      requestAnimationFrame(() => {
-        if (!safeFit(fit, term)) return;
-        const ws = wsRef.current;
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
-        }
+    (async () => {
+      // Dynamic import avoids `self is not defined` during server prerender.
+      const [{ Terminal }, { FitAddon }] = await Promise.all([import("@xterm/xterm"), import("@xterm/addon-fit")]);
+      if (disposed) return;
+
+      const term = new Terminal({
+        cursorBlink: true,
+        fontSize: 14,
+        fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+        theme: {
+          background: "#0c0e12",
+          foreground: "#e6e9ef",
+          cursor: "#3ecf8e",
+        },
       });
+      const fit = new FitAddon();
+      term.loadAddon(fit);
+      term.open(el);
+      termRef.current = term;
+      fitRef.current = fit;
+      runAfterLayout(() => {
+        safeFit(fit, term);
+      });
+      term.onData((data) => {
+        const socket = wsRef.current;
+        if (socket && socket.readyState === WebSocket.OPEN) socket.send(data);
+      });
+
+      ro = new ResizeObserver(() => {
+        requestAnimationFrame(() => {
+          if (!safeFit(fit, term)) return;
+          const ws = wsRef.current;
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
+          }
+        });
+      });
+      ro.observe(el);
+    })().catch(() => {
+      // If xterm fails to load, just leave the container empty and show an error.
+      setError("Terminal UI failed to load. Try refreshing the page.");
     });
-    ro.observe(el);
 
     return () => {
-      ro.disconnect();
+      disposed = true;
+      ro?.disconnect();
       disconnect();
-      term.dispose();
       termRef.current = null;
       fitRef.current = null;
     };

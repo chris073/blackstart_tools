@@ -56,6 +56,19 @@ export default function ToolsPage() {
             <div className="mt-0.5 text-xs text-bsl-muted transition group-hover:text-emerald-200">Open →</div>
           </div>
         </Link>
+
+        <Link
+          href="/tools/subnet"
+          className="group rounded-2xl border border-bsl-border bg-bsl-panel/60 p-5 backdrop-blur transition hover:border-emerald-500/35 hover:bg-bsl-panel"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-sm font-medium text-bsl-text">Subnet Calculator</div>
+              <div className="mt-1 text-sm text-bsl-muted">IPv4 CIDR: mask, wildcard, network, broadcast, hosts.</div>
+            </div>
+            <div className="mt-0.5 text-xs text-bsl-muted transition group-hover:text-emerald-200">Open →</div>
+          </div>
+        </Link>
       </div>
     </div>
   );
