@@ -69,6 +69,21 @@ export default function ToolsPage() {
             <div className="mt-0.5 text-xs text-bsl-muted transition group-hover:text-emerald-200">Open →</div>
           </div>
         </Link>
+
+        <Link
+          href="/tools/modbus"
+          className="group rounded-2xl border border-bsl-border bg-bsl-panel/60 p-5 backdrop-blur transition hover:border-emerald-500/35 hover:bg-bsl-panel"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-sm font-medium text-bsl-text">Modbus TCP</div>
+              <div className="mt-1 text-sm text-bsl-muted">
+                TCP connect check, then poll one coil, discrete input, or register via the API.
+              </div>
+            </div>
+            <div className="mt-0.5 text-xs text-bsl-muted transition group-hover:text-emerald-200">Open →</div>
+          </div>
+        </Link>
       </div>
     </div>
   );
