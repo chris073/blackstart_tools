@@ -1,8 +1,0 @@
-# Local secrets / env (do not commit real values). Rename or merge into your real env file.
-DATABASE_URL=
-OPENAI_API_KEY=
-JIRA_DOMAIN=
-JIRA_EMAIL=
-JIRA_API_TOKEN=
-COMPLETION_READ_WRITE_TOKEN=
-OPEN_AI_KEY=

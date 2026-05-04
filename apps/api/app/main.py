@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers.admin import router as admin_router
-from app.routers.athena import router as athena_router
 from app.routers.health import router as health_router
 from app.routers.modbus import router as modbus_router
 from app.routers.ping import router as ping_router
@@ -40,7 +39,6 @@ app.add_middleware(
 
 app.include_router(health_router)
 app.include_router(admin_router)
-app.include_router(athena_router)
 app.include_router(ping_router)
 app.include_router(modbus_router)
 app.include_router(terminal_router)

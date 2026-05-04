@@ -92,8 +92,6 @@ const uvicornArgs = noReload
       "--reload",
       "--reload-dir",
       "app",
-      "--reload-dir",
-      "athena",
       "--host",
       listenHost,
       "--port",

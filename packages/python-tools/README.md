@@ -7,7 +7,6 @@ For now, run them directly with Python (each tool has its own requirements file 
 Examples:
 
 ```bash
-python packages/python-tools/athena/athena_test.py
 python packages/python-tools/rtac/tag_editor.py
 ```
 

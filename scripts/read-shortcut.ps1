@@ -1,9 +1,0 @@
-$path = "c:\Users\chris\OneDrive\Desktop\z_Blackstart Labs Dev.lnk"
-$sh = New-Object -ComObject WScript.Shell
-$s = $sh.CreateShortcut($path)
-"TargetPath=$($s.TargetPath)"
-"Arguments=$($s.Arguments)"
-"WorkingDirectory=$($s.WorkingDirectory)"
-"IconLocation=$($s.IconLocation)"
-"WindowStyle=$($s.WindowStyle)"
-"Description=$($s.Description)"
