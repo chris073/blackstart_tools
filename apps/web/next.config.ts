@@ -12,7 +12,14 @@ function frameAncestorsCsp(): string {
   const configured = (
     process.env.NEXT_PUBLIC_MARKETING_WEB_ORIGIN ?? "http://127.0.0.1:3000"
   ).replace(/\/$/, "");
-  const origins = new Set<string>(["'self'", configured, "http://localhost:3000", "http://127.0.0.1:3000"]);
+  const origins = new Set<string>([
+    "'self'",
+    configured,
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3002",
+    "http://127.0.0.1:3002",
+  ]);
   return `frame-ancestors ${[...origins].join(" ")}`;
 }
 

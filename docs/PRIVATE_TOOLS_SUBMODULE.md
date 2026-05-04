@@ -1,6 +1,6 @@
 # Optional `private_tools` submodule
 
-Athena, handbook, and other **non-public** pieces can live in a separate repository (e.g. **`private_tools`**) and be linked into this monorepo as a **git submodule** under `private/private-tools`.
+**Non-public** tools and experiments can live in a separate repository (e.g. **`private_tools`**) and be linked into this monorepo as a **git submodule** under `private/private-tools`.
 
 ## Invited collaborators
 
@@ -20,7 +20,15 @@ Athena, handbook, and other **non-public** pieces can live in a separate reposit
 - Use **your** private repo URL in `git submodule add` (or change `origin` inside `private/private-tools` after add).  
 - You do **not** need Blackstart’s private remote—only your fork or empty scaffold.  
 - Submodule URL is stored in **`.gitmodules`**; it is not configured via `.env`.  
-- **`.env` / `.env.local`** remain for **runtime** settings (e.g. `HANDBOOK_CONTENT_PATH`, Athena credentials) inside `apps/web` or `apps/api`—see each app’s `.env.example`.
+- **`.env` / `.env.local`** remain for **runtime** settings (API keys, content paths, etc. in each app)—see each repo’s `.env.example`.
+
+## Hiding private tools on `/tools`
+
+In **`blackstart_tools/apps/web/.env.local`**, set **`NEXT_PUBLIC_SHOW_PRIVATE_TOOLS=false`** (or `0`, `no`, `off`) to remove the private companion link from the tools index. Omit the variable or set it to `true` to show it (default).
+
+## One-command dev (sync assets + start private app)
+
+From **`blackstart_tools`** root, **`npm run dev`** resolves **`private_tools`**, copies **`apps/web/public`** into **`apps/web/public/private-tools-sync`** for shared logos, and spawns **`npm run dev`** in **`private_tools`** (unless **`BLACKSTART_PRIVATE_TOOLS_AUTOSTART=false`**). Configure **`BLACKSTART_PRIVATE_TOOLS_DIR`** in repo-root **`.env.local`** if discovery does not find your clone. See **`docs/ENV.local.example.md`**, repo **`.env.example`**, **`apps/web/.env.example`**, and **`README.md`**.
 
 ## Scaffold clone
 

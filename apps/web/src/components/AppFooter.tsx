@@ -13,7 +13,7 @@ export function AppFooter() {
 
   return (
     <footer className="mt-10 border-t border-bsl-border pt-6 text-xs text-bsl-muted">
-      {toolsHome ? "Internal engineering tools." : "Internal tools — pair with the public labs site for marketing and handbook."}
+      {toolsHome ? "Internal engineering tools." : "Internal tools — pair with the public labs site for marketing."}
     </footer>
   );
 }

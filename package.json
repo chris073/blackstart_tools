@@ -5,7 +5,8 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "concurrently -n api,web -c \"cyan,magenta\" \"npm run dev -w apps/api\" \"npm run dev -w apps/web\"",
+    "dev": "node scripts/dev-with-optional-private.mjs",
+    "dev:core": "concurrently -n api,web -c \"cyan,magenta\" \"npm run dev -w apps/api\" \"npm run dev -w apps/web\"",
     "dev:web": "npm run dev -w apps/web",
     "dev:api": "npm run dev -w apps/api",
     "build": "npm run build -w apps/web",

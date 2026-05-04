@@ -1,4 +1,5 @@
 .env
+.env.local
 apps/api/app/.reload_touch
 apps/api/athena/.env.local
 apps/api/.env.local
@@ -16,3 +17,4 @@ yarn-debug.log*
 yarn-error.log*
 apps/**/node_modules/
 apps/**/.next/
+apps/web/public/private-tools-sync/

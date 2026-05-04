@@ -1,5 +1,7 @@
 import Image from "next/image";
 
+import { brandLogoSrc } from "@/lib/config";
+
 type Props = {
   variant?: "header" | "hero" | "corner";
   priority?: boolean;
@@ -10,7 +12,7 @@ export function BrandLogo({ variant = "header", priority = false }: Props) {
     return (
       <div className="flex h-8 shrink-0 items-center rounded-lg bg-black px-1.5 ring-1 ring-white/12">
         <Image
-          src="/blackstart-labs-logo.png"
+          src={brandLogoSrc()}
           alt=""
           width={220}
           height={88}
@@ -25,7 +27,7 @@ export function BrandLogo({ variant = "header", priority = false }: Props) {
     return (
       <div className="mx-auto w-full max-w-xl rounded-3xl bg-black p-6 shadow-[0_0_100px_rgba(0,0,0,0.55)] ring-1 ring-white/12 sm:p-10">
         <Image
-          src="/blackstart-labs-logo.png"
+          src={brandLogoSrc()}
           alt="Blackstart Labs — waveforms and network motif"
           width={720}
           height={400}
@@ -39,7 +41,7 @@ export function BrandLogo({ variant = "header", priority = false }: Props) {
   return (
     <div className="flex h-10 shrink-0 items-center rounded-xl bg-black px-2 ring-1 ring-white/15 sm:h-11 sm:px-2.5">
       <Image
-        src="/blackstart-labs-logo.png"
+        src={brandLogoSrc()}
         alt=""
         width={220}
         height={88}

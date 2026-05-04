@@ -1,6 +1,6 @@
 # Repo split: blackstart_tools vs blackstart_web
 
-Engineering tools (**Athena**, API, private UI) stay in **`blackstart_tools`** (this repo).
+Engineering tools (Next UI, API, integrations) stay in **`blackstart_tools`** (this repo).
 
 The **public marketing site** is scaffolded in sibling folder **`c:\repos\blackstart_web`** (intended as its own GitHub repo).
 
