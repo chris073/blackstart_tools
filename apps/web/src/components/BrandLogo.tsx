@@ -1,11 +1,26 @@
 import Image from "next/image";
 
 type Props = {
-  variant?: "header" | "hero";
+  variant?: "header" | "hero" | "corner";
   priority?: boolean;
 };
 
 export function BrandLogo({ variant = "header", priority = false }: Props) {
+  if (variant === "corner") {
+    return (
+      <div className="flex h-8 shrink-0 items-center rounded-lg bg-black px-1.5 ring-1 ring-white/12">
+        <Image
+          src="/blackstart-labs-logo.png"
+          alt=""
+          width={220}
+          height={88}
+          className="h-5 w-auto max-w-[3.75rem] object-contain object-left"
+          priority={priority}
+        />
+      </div>
+    );
+  }
+
   if (variant === "hero") {
     return (
       <div className="mx-auto w-full max-w-xl rounded-3xl bg-black p-6 shadow-[0_0_100px_rgba(0,0,0,0.55)] ring-1 ring-white/12 sm:p-10">

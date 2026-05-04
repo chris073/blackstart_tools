@@ -1,41 +1,22 @@
 # blackstart_tools (monorepo)
 
-This repo is structured as a monorepo with:
-
-- `apps/web`: Next.js frontend (Blackstart Labs UI)
-- `apps/api`: FastAPI backend (Python tools connected via API routes one-by-one)
-- `packages/python-tools`: standalone Python tools, consolidated in one place
+Next.js tools UI (**`apps/web`**, port **3001**) and FastAPI (**`apps/api`**) plus **`packages/python-tools`**.
 
 ## Dev
 
-Install Node deps at the repo root:
-
 ```bash
 npm install
+npm run dev          # web + api
+npm run dev:web      # web only
+npm run dev:api      # api only
 ```
 
-Run web + api together:
+Marketing site lives in **`blackstart_web`** (port **3000**).
 
-```bash
-npm run dev
-```
+## Optional private layer (`private_tools`)
 
-Or individually:
+Athena, handbook PKM, and other **private** code can live in a **separate repo** and be attached here as a **git submodule** (e.g. **`private/private-tools`**). Invited collaborators clone with submodule init; **third parties** point the submodule at **their own** private fork—no access to Blackstart’s remote required.
 
-```bash
-npm run dev:web
-npm run dev:api
-```
+Details: **`docs/PRIVATE_TOOLS_SUBMODULE.md`**. Scaffold / integration notes for the split repo: clone or create **`private_tools`** (see **`c:\private_tools`** if you use that path).
 
-## Athena (web + API)
-
-The API reads **`apps/api/athena/.env.local`** first (same variables as the legacy GUI). If that file is missing, it falls back to **`packages/python-tools/athena/.env.local`**.
-
-Copy or symlink from the legacy folder if needed:
-
-```bash
-# example (Windows PowerShell)
-Copy-Item packages\python-tools\athena\.env.local apps\api\athena\.env.local
-```
-
-See `apps/api/athena/.env.local.example` for a template. `apps/api/athena/.env.local` is gitignored.
+Runtime secrets and local paths (**`HANDBOOK_CONTENT_PATH`**, Athena env, etc.) still live in **`apps/web/.env.local`** and **`apps/api/...`** — see each app’s **`.env.example`**.
