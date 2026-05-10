@@ -1,5 +1,16 @@
+# Python deps for repo tooling and the FastAPI service under apps/api.
+# Install: py -3 -m pip install -r requirements.txt
+
 FreeSimpleGUI
 requests
 pandas
 openpyxl
 python-dotenv
+
+# apps/api — FastAPI, uvicorn, Modbus (pymodbus), SSH (asyncssh), MQTT explorer (paho-mqtt)
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.7.0
+asyncssh>=2.14.0,<3
+pymodbus>=3.6.0,<4
+paho-mqtt>=2.1.0,<3

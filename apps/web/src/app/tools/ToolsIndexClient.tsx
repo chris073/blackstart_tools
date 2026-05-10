@@ -20,6 +20,11 @@ const coreLinks = [
     body: "TCP connect check, then poll one coil, discrete input, or register via the API.",
   },
   {
+    href: "/tools/mqtt",
+    title: "MQTT explorer",
+    body: "Subscribe and publish through the API (paho-mqtt); optional SSH tunnel with a PEM private key.",
+  },
+  {
     href: "/tools/handbook",
     title: "Markdown notes",
     body: "Read and optionally edit .md files from a folder you set with HANDBOOK_CONTENT_PATH.",

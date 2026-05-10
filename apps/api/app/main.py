@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routers.admin import router as admin_router
 from app.routers.health import router as health_router
 from app.routers.modbus import router as modbus_router
+from app.routers.mqtt import router as mqtt_router
 from app.routers.ping import router as ping_router
 from app.routers.terminal import router as terminal_router
 
@@ -41,5 +42,6 @@ app.include_router(health_router)
 app.include_router(admin_router)
 app.include_router(ping_router)
 app.include_router(modbus_router)
+app.include_router(mqtt_router)
 app.include_router(terminal_router)
 

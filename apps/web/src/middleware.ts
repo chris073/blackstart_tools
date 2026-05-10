@@ -12,10 +12,21 @@ function requireLocal() {
   return NextResponse.redirect(marketingPublicUrl());
 }
 
-/** Tools app is local-only; redirect non-local requests to marketing origin. */
+/** Paths under /tools that stay reachable on any Host (public deploy, LAN URL, iframe embed). */
+function isPublicToolsPath(pathname: string): boolean {
+  return pathname === "/tools/mqtt" || pathname.startsWith("/tools/mqtt/");
+}
+
+/**
+ * Most tools are local-only (localhost) so they are not exposed when the app is reachable on a
+ * public hostname. MQTT explorer is an exception: it is intended to be shared like other public pages.
+ */
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (pathname === "/tools" || pathname.startsWith("/tools/")) {
+    if (isPublicToolsPath(pathname)) {
+      return NextResponse.next();
+    }
     const host = req.headers.get("host");
     if (!isLocalHost(host)) {
       return requireLocal();
